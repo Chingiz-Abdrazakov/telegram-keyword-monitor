@@ -1,0 +1,15 @@
+[Unit]
+Description=Telegram Keyword Monitor
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/telegram-keyword-monitor
+EnvironmentFile=/home/ubuntu/telegram-keyword-monitor/.env
+ExecStart=/home/ubuntu/telegram-keyword-monitor/.venv/bin/python /home/ubuntu/telegram-keyword-monitor/monitor.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
