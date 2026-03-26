@@ -89,17 +89,21 @@ cp .env.example .env
 ```env
 API_ID=12345678
 API_HASH=your_api_hash
+DEST_CHAT_ID=-5202871265
+SESSION_NAME=server_monitor_session
+COOLDOWN=10
+KEYWORDS_FILE=keywords.txt
+SOURCE_CHATS_FILE=source_chats.txt
 ```
 
 Описание параметров:
 
 - `API_ID` и `API_HASH` - данные приложения Telegram API.
-
-Чат для уведомлений зашит прямо в коде `monitor.py`:
-
-- `DEST_CHAT_ID = -5202871265`
-
-Чаты-источники задаются в `source_chats.txt`, по одному ID на строку.
+- `DEST_CHAT_ID` - ID чата, куда уходят уведомления.
+- `SESSION_NAME` - имя session-файла Telethon.
+- `COOLDOWN` - антиспам-пауза между уведомлениями в секундах.
+- `KEYWORDS_FILE` - путь к файлу с ключевыми словами.
+- `SOURCE_CHATS_FILE` - путь к файлу со списком source-чатов.
 
 ### 5. Заполнить ключевые слова
 
@@ -138,8 +142,9 @@ python monitor.py
 3. Загружает список разрешенных source-чатов из `source_chats.txt`.
 4. Загружает список ключевых слов из `keywords.txt`.
 5. Ищет все совпадения по регулярному выражению.
-6. Если совпадения найдены, отправляет уведомление в `DEST_CHAT_ID`.
-7. На повторные уведомления действует cooldown 10 секунд.
+6. Формирует стабильный список триггеров, ссылку на сообщение и человекочитаемое уведомление.
+7. Если совпадения найдены, отправляет уведомление в `DEST_CHAT_ID`.
+8. На повторные уведомления действует cooldown `COOLDOWN`.
 
 ## Автозапуск через systemd
 
@@ -172,10 +177,11 @@ sudo systemctl status telegram-keyword-monitor
 
 ### Изменить чаты
 
-Отредактируйте `source_chats.txt` или `monitor.py`, если нужно сменить чат для уведомлений:
+Отредактируйте `.env` или `source_chats.txt`:
 
 - `source_chats.txt` - список чатов-источников, по одному ID на строку
 - `DEST_CHAT_ID` - ID чата, куда уходят уведомления
+- `COOLDOWN`, `SESSION_NAME`, `KEYWORDS_FILE`, `SOURCE_CHATS_FILE` - дополнительные настройки запуска
 
 После изменения настроек при работе через `systemd` перезапустите сервис:
 
