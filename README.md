@@ -30,6 +30,7 @@
 telegram-keyword-monitor/
 ├── monitor.py
 ├── keywords.txt
+├── source_chats.txt
 ├── .env.example
 ├── requirements.txt
 ├── .gitignore
@@ -43,8 +44,6 @@ telegram-keyword-monitor/
 - Python 3.10+
 - Telegram-аккаунт
 - `api_id` и `api_hash` с [my.telegram.org](https://my.telegram.org)
-- ID чата-источника
-- ID чата для уведомлений
 
 ## Быстрый старт
 
@@ -90,17 +89,17 @@ cp .env.example .env
 ```env
 API_ID=12345678
 API_HASH=your_api_hash
-TARGET_CHAT_ID=-1001111111111
-DEST_CHAT_ID=-1002222222222
-KEYWORDS_FILE=keywords.txt
 ```
 
 Описание параметров:
 
 - `API_ID` и `API_HASH` - данные приложения Telegram API.
-- `TARGET_CHAT_ID` - ID чата, который нужно слушать.
-- `DEST_CHAT_ID` - ID чата, куда будут уходить уведомления.
-- `KEYWORDS_FILE` - путь к файлу со словами для поиска.
+
+Чат для уведомлений зашит прямо в коде `monitor.py`:
+
+- `DEST_CHAT_ID = -5202871265`
+
+Чаты-источники задаются в `source_chats.txt`, по одному ID на строку.
 
 ### 5. Заполнить ключевые слова
 
@@ -108,6 +107,7 @@ KEYWORDS_FILE=keywords.txt
 
 ```text
 заказ
+заказы
 клиент
 смета
 декор
@@ -135,11 +135,11 @@ python monitor.py
 
 1. Скрипт подключается к Telegram через `Telethon`.
 2. Ждет новые сообщения через обработчик `events.NewMessage`.
-3. Игнорирует все чаты, кроме `TARGET_CHAT_ID`.
+3. Загружает список разрешенных source-чатов из `source_chats.txt`.
 4. Загружает список ключевых слов из `keywords.txt`.
-5. Ищет совпадение по регулярному выражению.
-6. Если совпадение найдено, отправляет уведомление в `DEST_CHAT_ID`.
-7. На повторные уведомления действует cooldown 60 секунд.
+5. Ищет все совпадения по регулярному выражению.
+6. Если совпадения найдены, отправляет уведомление в `DEST_CHAT_ID`.
+7. На повторные уведомления действует cooldown 10 секунд.
 
 ## Автозапуск через systemd
 
@@ -172,10 +172,10 @@ sudo systemctl status telegram-keyword-monitor
 
 ### Изменить чаты
 
-Отредактируйте `.env`:
+Отредактируйте `source_chats.txt` или `monitor.py`, если нужно сменить чат для уведомлений:
 
-- `TARGET_CHAT_ID`
-- `DEST_CHAT_ID`
+- `source_chats.txt` - список чатов-источников, по одному ID на строку
+- `DEST_CHAT_ID` - ID чата, куда уходят уведомления
 
 После изменения настроек при работе через `systemd` перезапустите сервис:
 
