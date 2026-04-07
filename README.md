@@ -1,13 +1,14 @@
 # Telegram Keyword Monitor
 
-Скрипт на `Telethon`, который отслеживает новые сообщения в выбранном Telegram-чате и отправляет уведомление в другой чат, если находит одно из ключевых слов.
+Скрипт на `Telethon`, который отслеживает новые сообщения в выбранных Telegram-чатах и отправляет уведомление в другой чат, если видит релевантный запрос.
 
 ## Что делает проект
 
 - слушает новые сообщения в заданном чате;
-- проверяет текст на наличие ключевых слов из файла `keywords.txt`;
+- проверяет сообщение по двум слоям: слова намерения и предметные слова;
+- отбрасывает интро, вакансии, ботов и автоудаляющийся спам;
 - отправляет уведомление в отдельный чат;
-- защищает от повторных срабатываний коротким cooldown.
+- защищает от повторных срабатываний задержкой, дедупликацией и cooldown.
 
 ## Когда это подходит
 
@@ -29,8 +30,12 @@
 ```text
 telegram-keyword-monitor/
 ├── monitor.py
-├── keywords.txt
 ├── source_chats.txt
+├── intent_keywords.txt
+├── product_keywords.txt
+├── negative_keywords.txt
+├── sender_blacklist.txt
+├── keywords.txt
 ├── .env.example
 ├── requirements.txt
 ├── .gitignore
@@ -92,8 +97,14 @@ API_HASH=your_api_hash
 DEST_CHAT_ID=-5202871265
 SESSION_NAME=server_monitor_session
 COOLDOWN=10
-KEYWORDS_FILE=keywords.txt
 SOURCE_CHATS_FILE=source_chats.txt
+INTENT_KEYWORDS_FILE=intent_keywords.txt
+PRODUCT_KEYWORDS_FILE=product_keywords.txt
+NEGATIVE_KEYWORDS_FILE=negative_keywords.txt
+SENDER_BLACKLIST_FILE=sender_blacklist.txt
+MESSAGE_DELAY_SECONDS=60
+DEDUP_TTL_SECONDS=43200
+IGNORE_BOT_SENDERS=true
 ```
 
 Описание параметров:
@@ -101,24 +112,24 @@ SOURCE_CHATS_FILE=source_chats.txt
 - `API_ID` и `API_HASH` - данные приложения Telegram API.
 - `DEST_CHAT_ID` - ID чата, куда уходят уведомления.
 - `SESSION_NAME` - имя session-файла Telethon.
-- `COOLDOWN` - антиспам-пауза между уведомлениями в секундах.
-- `KEYWORDS_FILE` - путь к файлу с ключевыми словами.
+- `COOLDOWN` - минимальная пауза между алертами в одном чате.
 - `SOURCE_CHATS_FILE` - путь к файлу со списком source-чатов.
+- `INTENT_KEYWORDS_FILE` - файл со словами намерения: ищу, нужен, куплю, в аренду.
+- `PRODUCT_KEYWORDS_FILE` - файл с предметными словами: гирлянды, буквы, стойки и т.д.
+- `NEGATIVE_KEYWORDS_FILE` - файл со стоп-словами для вакансий, интро и рекламы.
+- `SENDER_BLACKLIST_FILE` - usernames отправителей, которых надо игнорировать.
+- `MESSAGE_DELAY_SECONDS` - задержка перед проверкой сообщения.
+- `DEDUP_TTL_SECONDS` - время, в течение которого одинаковый текст повторно не пересылается.
+- `IGNORE_BOT_SENDERS` - игнорировать ли bot-аккаунты.
 
-### 5. Заполнить ключевые слова
+### 5. Заполнить словари
 
-Файл `keywords.txt` содержит по одному слову на строку:
+Основные файлы:
 
-```text
-заказ
-заказы
-клиент
-смета
-декор
-оформление
-```
-
-Вы можете в любой момент редактировать этот файл и добавлять новые слова.
+- `intent_keywords.txt` - намерение купить, арендовать, заказать, запросить смету
+- `product_keywords.txt` - предметные слова по вашей номенклатуре
+- `negative_keywords.txt` - стоп-слова для интро, вакансий и спама
+- `sender_blacklist.txt` - отправители, которых нужно игнорировать
 
 ### 6. Первый запуск
 
@@ -139,12 +150,13 @@ python monitor.py
 
 1. Скрипт подключается к Telegram через `Telethon`.
 2. Ждет новые сообщения через обработчик `events.NewMessage`.
-3. Загружает список разрешенных source-чатов из `source_chats.txt`.
-4. Загружает список ключевых слов из `keywords.txt`.
-5. Ищет все совпадения по регулярному выражению.
-6. Формирует стабильный список триггеров, ссылку на сообщение и человекочитаемое уведомление.
-7. Если совпадения найдены, отправляет уведомление в `DEST_CHAT_ID`.
-8. На повторные уведомления действует cooldown `COOLDOWN`.
+3. Ставит новое сообщение в очередь на обработку с задержкой `MESSAGE_DELAY_SECONDS`.
+4. Повторно читает сообщение и отбрасывает автоудаляющийся спам.
+5. Игнорирует bot-отправителей и usernames из `sender_blacklist.txt`.
+6. Ищет совпадения по словарям намерения и предмета.
+7. Отбрасывает сообщения со стоп-словами из `negative_keywords.txt`.
+8. Применяет дедупликацию и cooldown по чату.
+9. Если фильтр пройден, отправляет уведомление в `DEST_CHAT_ID`.
 
 ## Автозапуск через systemd
 
@@ -171,9 +183,14 @@ sudo systemctl status telegram-keyword-monitor
 
 ## Как менять настройки
 
-### Добавить или удалить ключевые слова
+### Изменить фильтрацию
 
-Отредактируйте `keywords.txt`.
+Отредактируйте:
+
+- `intent_keywords.txt`
+- `product_keywords.txt`
+- `negative_keywords.txt`
+- `sender_blacklist.txt`
 
 ### Изменить чаты
 
@@ -181,7 +198,8 @@ sudo systemctl status telegram-keyword-monitor
 
 - `source_chats.txt` - список чатов-источников, по одному ID на строку
 - `DEST_CHAT_ID` - ID чата, куда уходят уведомления
-- `COOLDOWN`, `SESSION_NAME`, `KEYWORDS_FILE`, `SOURCE_CHATS_FILE` - дополнительные настройки запуска
+- `COOLDOWN`, `SESSION_NAME`, `SOURCE_CHATS_FILE` - дополнительные настройки запуска
+- `MESSAGE_DELAY_SECONDS`, `DEDUP_TTL_SECONDS`, `IGNORE_BOT_SENDERS` - антиспам и поведение фильтра
 
 После изменения настроек при работе через `systemd` перезапустите сервис:
 
